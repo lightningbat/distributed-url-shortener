@@ -2,20 +2,35 @@ package api
 
 import (
 	"backend/internal/queue"
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/guregu/dynamo/v2"
+	"github.com/maypok86/otter/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 var validate = validator.New()
 
+var cache = otter.Must(&otter.Options[string, string]{
+	MaximumWeight: 100 * 1024 * 1024,
+
+	Weigher: func(key string, val string) uint32 {
+		return uint32(len(key) + len(val))
+	},
+
+	ExpiryCalculator: otter.ExpiryWriting[string, string](60 * time.Second),
+})
+
 type handler struct {
-	q  *queue.DataQueue
-	db *dynamo.Table
+	q   *queue.DataQueue
+	db  *dynamo.Table
+	rdb *redis.Client
 }
 
 type shortReq struct {
@@ -65,8 +80,20 @@ func (h *handler) redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if val, ok := cache.GetIfPresent(id); ok {
+		http.Redirect(w, r, val, http.StatusMovedPermanently)
+		return
+	}
+
+	val, err := h.rdb.Get(r.Context(), id).Result()
+	if err == nil {
+		cache.Set(id, val)
+		http.Redirect(w, r, val, http.StatusMovedPermanently)
+		return
+	}
+
 	var res urlMap
-	err := h.db.Get("id", id).One(r.Context(), &res)
+	err = h.db.Get("id", id).One(r.Context(), &res)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -76,6 +103,13 @@ func (h *handler) redirect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+
+	go func(id, url string) {
+		cache.Set(id, url)
+		if err := h.rdb.Set(context.Background(), id, url, time.Hour).Err(); err != nil {
+			slog.Error("redis set failed", "id", id, "err", err)
+		}
+	}(id, res.URL)
 
 	http.Redirect(w, r, res.URL, http.StatusMovedPermanently)
 }
