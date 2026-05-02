@@ -1,0 +1,18 @@
+package api
+
+import (
+	"backend/internal/queue"
+	"net/http"
+
+	"github.com/guregu/dynamo/v2"
+)
+
+func RegisterRoutes(q *queue.DataQueue, table *dynamo.Table) http.Handler {
+	mux := http.NewServeMux()
+	h := handler{q: q, db: table}
+
+	mux.HandleFunc("POST /api/short", h.shorten)
+	mux.HandleFunc("GET /{id}", h.redirect)
+
+	return mux
+}
