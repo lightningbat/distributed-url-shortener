@@ -47,7 +47,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    ":8080",
-		Handler: api.RegisterRoutes(q, dynamoTable),
+		Handler: api.RegisterRoutes(q, dynamoTable, rdb),
 	}
 
 	go func() {
