@@ -28,10 +28,6 @@ const (
 var StepSizeRules = []int{100, 500, 2000, 5000}
 
 func main() {
-	// Initialize structured logger
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -39,16 +35,7 @@ func main() {
 		Addr: "localhost:6379",
 	})
 
-	programLevel := new(slog.LevelVar)
-	programLevel.Set(slog.LevelInfo)
-
-	h := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: programLevel})
-	slog.SetDefault(slog.New(h))
-
-	// Logic to switch level based on an Environment Variable
-	if os.Getenv("APP_DEBUG") == "true" {
-		programLevel.Set(slog.LevelDebug)
-	}
+	setupLogger()
 
 	slog.Info("ID Generator service starting", "target_batch", TargetBatchSize)
 	runRefillWorker(ctx, rdb)
@@ -140,4 +127,16 @@ func generateBase62Batch(start uint64, size int) []string {
 		ids = append(ids, string(base62.FormatUint(start+i)))
 	}
 	return ids
+}
+
+func setupLogger() {
+    programLevel := new(slog.LevelVar)
+    programLevel.Set(slog.LevelInfo)
+
+    if os.Getenv("APP_DEBUG") == "true" {
+        programLevel.Set(slog.LevelDebug)
+    }
+
+    h := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: programLevel})
+    slog.SetDefault(slog.New(h))
 }
