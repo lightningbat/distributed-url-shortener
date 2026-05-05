@@ -1,0 +1,26 @@
+# --- Server Behavior ---
+# The level that triggers the refill worker
+refill_threshold: 1000
+
+# Wait time when stock is healthy (e.g., 2s, 500ms)
+idle_interval: 2s
+
+max_push_retries: 3
+
+# Progression of batch sizes for generation
+step_size_rules:
+  - 100
+  - 500
+  - 2000
+  - 5000
+
+# --- Infrastructure ---
+# Redis connection string (e.g., localhost:6379)
+redis_addr: "CHANGEME"
+
+# Log level toggle
+debug: false
+
+# Redis key names
+redis_key_ids: "app:id_pool"
+redis_key_counter: "app:global_counter"
