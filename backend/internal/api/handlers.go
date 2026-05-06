@@ -28,9 +28,9 @@ var cache = otter.Must(&otter.Options[string, string]{
 })
 
 type handler struct {
-	q   *queue.DataQueue
-	db  *dynamo.Table
-	rdb *redis.Client
+	queue       *queue.DataQueue
+	db          *dynamo.Table
+	volatileRdb *redis.Client
 }
 
 type shortReq struct {
@@ -55,7 +55,7 @@ func (h *handler) shorten(w http.ResponseWriter, r *http.Request) {
 	}
 
 	select {
-	case id := <-h.q.Pipe:
+	case id := <-h.queue.Pipe:
 		mapping := urlMap{ID: id, URL: req.URL}
 
 		if err := h.db.Put(mapping).Run(r.Context()); err != nil {
@@ -68,7 +68,7 @@ func (h *handler) shorten(w http.ResponseWriter, r *http.Request) {
 
 	default:
 		// Queue empty - no IDs available to assign
-		slog.Warn("worker pipe empty")
+		slog.Warn("Id queue empty")
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 	}
 }
@@ -85,7 +85,7 @@ func (h *handler) redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	val, err := h.rdb.Get(r.Context(), id).Result()
+	val, err := h.volatileRdb.Get(r.Context(), id).Result()
 	if err == nil {
 		cache.Set(id, val)
 		http.Redirect(w, r, val, http.StatusMovedPermanently)
@@ -106,7 +106,7 @@ func (h *handler) redirect(w http.ResponseWriter, r *http.Request) {
 
 	go func(id, url string) {
 		cache.Set(id, url)
-		if err := h.rdb.Set(context.Background(), id, url, time.Hour).Err(); err != nil {
+		if err := h.volatileRdb.Set(context.Background(), id, url, time.Hour).Err(); err != nil {
 			slog.Error("redis set failed", "id", id, "err", err)
 		}
 	}(id, res.URL)

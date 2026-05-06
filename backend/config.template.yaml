@@ -1,0 +1,30 @@
+server:
+  port: "${SERVER_PORT}"
+  debug: ${SERVER_DEBUG}
+
+rate_limit:
+  shorten:
+    count: ${RATE_LIMIT_SHORTEN_COUNT}
+    period: "${RATE_LIMIT_SHORTEN_PERIOD}"
+  redirect:
+    count: ${RATE_LIMIT_REDIRECT_COUNT}
+    period: "${RATE_LIMIT_REDIRECT_PERIOD}"
+
+persistent_redis:
+  addr: "${PERSISTENT_REDIS_ADDR}"
+  redis_key_ids: "${PERSISTENT_REDIS_KEY}"
+
+volatile_redis:
+  addr: "${VOLATILE_REDIS_ADDR}"
+
+aws:
+  region: "${AWS_REGION}"
+  dynamo_table: "${AWS_DYNAMO_TABLE}"
+
+buffer:
+  buffer_id_size: ${BUFFER_ID_SIZE}
+  max_retries: ${BUFFER_MAX_RETRIES}
+
+worker:
+  idle_interval: "${WORKER_IDLE_INTERVAL}"
+  pull_limit: ${WORKER_PULL_LIMIT}

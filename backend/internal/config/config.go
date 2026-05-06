@@ -1,38 +1,97 @@
 package config
 
 import (
-	"fmt"
 	"os"
-	"reflect"
+	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	RedisAddr   string `env:"REDIS_ADDR"`
-	RedisPass   string `env:"REDIS_PASS"`
-	AWSRegion   string `env:"AWS_REGION"`
-	DynamoTable string `env:"DYNAMO_TABLE"`
+type RedisInstance struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"-"` // Secret
 }
 
-func LoadConfig() (*Config, error) {
+type WorkerOptions struct {
+	IdleInterval time.Duration `yaml:"idle_interval"`
+	PullLimit    int           `yaml:"pull_limit"`
+}
+
+type RateLimitConfig struct {
+	Shorten struct {
+		Count  int           `yaml:"count"`
+		Period time.Duration `yaml:"period"`
+	} `yaml:"shorten"`
+
+	Redirect struct {
+		Count  int           `yaml:"count"`
+		Period time.Duration `yaml:"period"`
+	} `yaml:"redirect"`
+}
+
+type Config struct {
+	Server struct {
+		Port  string `yaml:"port"`
+		Debug bool   `yaml:"debug"`
+	} `yaml:"server"`
+
+	PersistentRedis struct {
+		RedisInstance `yaml:",inline"`
+		RedisKeyIDs   string `yaml:"redis_key_ids"`
+	} `yaml:"persistent_redis"`
+
+	VolatileRedis RedisInstance `yaml:"volatile_redis"`
+
+	AWS struct {
+		Region      string `yaml:"region"`
+		DynamoTable string `yaml:"dynamo_table"`
+	} `yaml:"aws"`
+
+	Buffer struct {
+		BufferIDSize int `yaml:"buffer_id_size"`
+		MaxRetries   int `yaml:"max_retries"`
+	} `yaml:"buffer"`
+
+	Worker WorkerOptions `yaml:"worker"`
+
+	RateLimit RateLimitConfig `yaml:"rate_limit"`
+}
+
+func LoadConfig(configPath string) (*Config, error) {
 	cfg := &Config{}
-	
-	v := reflect.ValueOf(cfg).Elem()
-	t := v.Type()
 
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		tag := t.Field(i).Tag.Get("env")
+	// Core Defaults
+	cfg.Server.Port = ":8080"
+	cfg.Buffer.MaxRetries = 3
+	cfg.Buffer.BufferIDSize = 5000
+	cfg.Worker.IdleInterval = 100 * time.Millisecond
+	cfg.Worker.PullLimit = 4000
+	cfg.Server.Debug = os.Getenv("APP_DEBUG") == "true"
 
-		if tag == "" {
-			continue
-		}
+	file, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	err = yaml.Unmarshal(file, &cfg)
+	if err != nil {
+		return nil, err
+	}
 
-		value, exists := os.LookupEnv(tag)
-		if !exists {
-			return nil, fmt.Errorf("missing required environment variable: %s", tag)
-		}
+	cfg.PersistentRedis.Password = os.Getenv("REDIS_PERSISTENT_PASS")
+	cfg.VolatileRedis.Password = os.Getenv("REDIS_VOLATILE_PASS")
 
-		field.SetString(value)
+	if addr := os.Getenv("REDIS_PERSISTENT_ADDR"); addr != "" {
+		cfg.PersistentRedis.Addr = addr
+	}
+	if addr := os.Getenv("REDIS_VOLATILE_ADDR"); addr != "" {
+		cfg.VolatileRedis.Addr = addr
+	}
+
+	if region := os.Getenv("AWS_REGION"); region != "" {
+		cfg.AWS.Region = region
+	}
+	if table := os.Getenv("DYNAMO_TABLE"); table != "" {
+		cfg.AWS.DynamoTable = table
 	}
 
 	return cfg, nil

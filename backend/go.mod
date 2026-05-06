@@ -9,6 +9,7 @@ require (
 	github.com/guregu/dynamo/v2 v2.6.0
 	github.com/maypok86/otter/v2 v2.3.0
 	github.com/redis/go-redis/v9 v9.19.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -43,5 +44,4 @@ require (
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

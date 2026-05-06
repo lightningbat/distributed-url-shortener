@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"backend/internal/config"
 	"backend/internal/queue"
 	"context"
 	"errors"
@@ -12,19 +13,17 @@ import (
 )
 
 type Worker struct {
-	Redis             *redis.Client
-	Queue             *queue.DataQueue
+	Redis       *redis.Client
+	Queue       *queue.DataQueue
+	Cfg         *config.WorkerOptions
+	RedisKeyIDs string
 }
 
-const (
-	IdleInterval = 100 * time.Millisecond
-)
-
 func (w *Worker) Start(ctx context.Context) {
-	log := slog.With("module", "worker")
-	stockLimit := cap(w.Queue.Pipe)
+	log := slog.Default().WithGroup("worker")
+	bufferIDSize := cap(w.Queue.Pipe)
 
-	log.Info("worker started", "limit", stockLimit)
+	log.Info("worker started", "limit", bufferIDSize)
 
 	for {
 		if ctx.Err() != nil {
@@ -33,20 +32,23 @@ func (w *Worker) Start(ctx context.Context) {
 		}
 
 		qLen := len(w.Queue.Pipe)
-		if qLen >= stockLimit {
+		if qLen >= bufferIDSize {
 			log.Debug("queue full, idling", "len", qLen)
-			waitOrExit(ctx, IdleInterval)
+			waitOrExit(ctx, w.Cfg.IdleInterval)
 			continue
 		}
 
-		pullSize := min(stockLimit-qLen, 4000)
+		pullSize := min(bufferIDSize-qLen, w.Cfg.PullLimit)
 
-		ids, err := w.Redis.LPopCount(ctx, "IDs", pullSize).Result()
+		ids, err := w.Redis.LPopCount(ctx, w.RedisKeyIDs, pullSize).Result()
 		if err != nil {
 			if !errors.Is(err, redis.Nil) {
 				log.Error("redis lpop failed", "err", err)
+			} else {
+				log.Debug("worker idle: no tasks found in queue",
+					"key", w.RedisKeyIDs)
 			}
-			waitOrExit(ctx, IdleInterval)
+			waitOrExit(ctx, w.Cfg.IdleInterval)
 			continue
 		}
 
