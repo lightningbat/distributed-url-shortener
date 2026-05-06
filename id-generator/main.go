@@ -48,7 +48,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	file, err := os.ReadFile(path)
 	if err == nil {
-		if err := yaml.Unmarshal(file, cfg); err != nil {
+		if err := yaml.Unmarshal(file, &cfg); err != nil {
 			return nil, err
 		}
 	}
