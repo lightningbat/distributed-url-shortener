@@ -16,19 +16,23 @@ func RegisterRoutes(queue *queue.DataQueue, table *dynamo.Table, volatileRdb *re
 	limiter := redis_rate.NewLimiter(volatileRdb)
 
 	shortenLimit := redis_rate.Limit{
-		Rate: rlcfg.Shorten.Count,
-		Burst: rlcfg.Shorten.Count,
+		Rate:   rlcfg.Shorten.Count,
+		Burst:  rlcfg.Shorten.Count,
 		Period: rlcfg.Shorten.Period,
 	}
 
 	redirectLimit := redis_rate.Limit{
-		Rate: rlcfg.Redirect.Count,
-		Burst: rlcfg.Redirect.Count,
+		Rate:   rlcfg.Redirect.Count,
+		Burst:  rlcfg.Redirect.Count,
 		Period: rlcfg.Redirect.Period,
 	}
 
 	mux.Handle("POST /api/short", RateLimit(limiter, shortenLimit, true)(h.shorten))
 	mux.Handle("GET /{id}", RateLimit(limiter, redirectLimit, false)(h.redirect))
+
+	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	return mux
 }
