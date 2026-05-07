@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Distributed URL Shortener</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link
+		href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap"
+		rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+	<!-- <nav> -->
+	<!-- 	<div class="nav-wordmark">x<i>.</i>io</div> -->
+	<!-- 	<div class="nav-status"> -->
+	<!-- 		<div class="status-dot"></div> -->
+	<!-- 		distributed — v2.4.1 -->
+	<!-- 	</div> -->
+	<!-- </nav> -->
+
+	<div class="hero">
+		<h1>
+			<span class="dim">Distributed</span><br>
+			URL Shortener
+		</h1>
+
+		<p class="hero-descriptor">
+			Horizontally scalable URL shortening service<br>
+			optimized for low-latency redirect resolution.
+		</p>
+
+		<div class="shortener">
+			<div class="input-wrap">
+				<input class="url-field" id="urlField" type="text" placeholder="https://paste-your-long-url-here.com"
+					autocomplete="off" spellcheck="false">
+				<button class="go-btn" id="goBtn" onclick="shorten()">Shorten</button>
+			</div>
+			<div class="result-strip" id="resultStrip">
+				<span class="result-url" id="resultUrl"></span>
+				<button class="pill-btn" id="copyBtn" onclick="copyUrl()">Copy</button>
+				<button class="pill-btn" onclick="openUrl()">Open ↗</button>
+			</div>
+			<div class="field-err" id="fieldErr">enter a valid URL</div>
+		</div>
+	</div>
+
+	<hr>
+
+	<div class="overview">
+		<div class="ov-head">
+			<!-- <span class="ov-index">§ 01</span> -->
+			<span class="ov-label">Technical Overview</span>
+		</div>
+
+		<div class="cards">
+			<div class="card">
+				<div class="card-heading">ID Allocation</div>
+				<div class="card-text">
+					Globally unique IDs are <b>pre-generated and buffered</b> across multiple layers for low-latency
+					assignment. Each node holds a local pool replenished asynchronously — no coordinator in the hot
+					path.
+				</div>
+				<div class="card-pills">
+					<span class="cpill">pre-buffered</span>
+					<span class="cpill">base62</span>
+					<span class="cpill">async refill</span>
+				</div>
+			</div>
+
+			<div class="card">
+				<div class="card-heading">Read Path</div>
+				<div class="card-text">
+					Immutable short-link mappings resolved through a <b>three-tier cache hierarchy</b> — in-process LRU,
+					global Redis, then persistent storage as fallback. P99 redirects resolve in under 5 ms.
+				</div>
+				<div class="card-pills">
+					<span class="cpill">in-process LRU</span>
+					<span class="cpill">redis global</span>
+					<span class="cpill">&lt; 5ms p99</span>
+				</div>
+			</div>
+
+			<div class="card">
+				<div class="card-heading">Scalability</div>
+				<div class="card-text">
+					Stateless services orchestrated with <b>Kubernetes</b>. Horizontal pod autoscaling responds to
+					request rate. No shared mutable state between instances — any node can handle any request.
+				</div>
+				<div class="card-pills">
+					<span class="cpill">Kubernetes</span>
+					<span class="cpill">stateless</span>
+					<span class="cpill">HPA</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="gh-bar">
+			<span class="gh-note">Full system design, ADRs, and architecture diagrams</span>
+			<a class="gh-link" target="_blank" href="https://github.com/lightningbat/distributed-url-shortener">View
+				full architecture on GitHub →</a>
+		</div>
+	</div>
+
+	<script>
+		const BASE = 'https://tiny-url.krynix.xyz';
+		let currentUrl = '';
+
+
+		function isValid(url) {
+			try {const u = new URL(url); return u.protocol === 'http:' || u.protocol === 'https:';}
+			catch {return false;}
+		}
+
+		async function shorten() {
+			const field = document.getElementById('urlField');
+			const val = field.value.trim();
+			const err = document.getElementById('fieldErr');
+			const strip = document.getElementById('resultStrip');
+			const btn = document.getElementById('goBtn');
+
+			err.classList.remove('on');
+			strip.classList.remove('on');
+
+			if (!val || !isValid(val)) {
+				err.classList.add('on');
+				field.focus();
+				return;
+			}
+
+			btn.disabled = true;
+			btn.textContent = '—';
+
+			try {
+				const res = await fetch('http://localhost:8080/api/short', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({longurl: val})
+				});
+
+				if (!res.ok) throw new Error();
+
+				const data = await res.json();
+				currentUrl = `${BASE}/${data.redirect_id}`;
+				document.getElementById('resultUrl').textContent = currentUrl;
+				document.getElementById('copyBtn').textContent = 'Copy';
+				document.getElementById('copyBtn').classList.remove('done');
+				strip.classList.add('on');
+			} catch {
+				err.textContent = 'request failed — check the URL or try again';
+				err.classList.add('on');
+			} finally {
+				btn.disabled = false;
+				btn.textContent = 'Shorten';
+			}
+		}
+
+		function copyUrl() {
+			if (!currentUrl) return;
+			navigator.clipboard.writeText(currentUrl).then(() => {
+				const b = document.getElementById('copyBtn');
+				b.textContent = 'Copied';
+				b.classList.add('done');
+				setTimeout(() => {b.textContent = 'Copy'; b.classList.remove('done');}, 2000);
+			});
+		}
+
+		function openUrl() {
+			if (currentUrl) window.open(currentUrl, '_blank');
+		}
+
+		document.getElementById('urlField').addEventListener('keydown', e => {
+			if (e.key === 'Enter') shorten();
+		});
+	</script>
+</body>
+
+</html>
