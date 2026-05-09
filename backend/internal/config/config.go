@@ -29,6 +29,11 @@ type RateLimitConfig struct {
 	} `yaml:"redirect"`
 }
 
+type CacheOptions struct {
+	MaxWeight int    `yaml:"max_weight"`
+	Expiry    string `yaml:"expiry"`
+}
+
 type Config struct {
 	Server struct {
 		Port  string `yaml:"port"`
@@ -55,6 +60,8 @@ type Config struct {
 	Worker WorkerOptions `yaml:"worker"`
 
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
+
+	Cache CacheOptions `yaml:"cache"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {

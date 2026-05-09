@@ -16,16 +16,9 @@ import (
 )
 
 var validate = validator.New()
+var cache *otter.Cache[string, string]
 
-var cache = otter.Must(&otter.Options[string, string]{
-	MaximumWeight: 100 * 1024 * 1024,
-
-	Weigher: func(key string, val string) uint32 {
-		return uint32(len(key) + len(val))
-	},
-
-	ExpiryCalculator: otter.ExpiryWriting[string, string](60 * time.Second),
-})
+const DefaultExpiry = 1 * time.Minute
 
 type handler struct {
 	queue       *queue.DataQueue
@@ -118,4 +111,25 @@ func writeJSON(w http.ResponseWriter, code int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(data)
+}
+
+func initializeCache(maxWeight int, expiry string) {
+	expiryDuration, err := time.ParseDuration(expiry)
+	if err != nil {
+		slog.Warn("failed to parse cache expiry; using default",
+			"input", expiry,
+			"error", err,
+			"fallback", DefaultExpiry)
+		expiryDuration = DefaultExpiry
+	}
+	cache = otter.Must(&otter.Options[string, string]{
+		MaximumWeight: uint64(maxWeight),
+
+		Weigher: func(key string, val string) uint32 {
+			return uint32(len(key) + len(val))
+		},
+
+		ExpiryCalculator: otter.ExpiryWriting[string, string](expiryDuration),
+	})
+
 }

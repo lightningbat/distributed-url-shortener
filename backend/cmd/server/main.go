@@ -58,7 +58,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Port,
-		Handler: api.RegisterRoutes(queue, dynamoTable, volatileRdb, &cfg.RateLimit),
+		Handler: api.RegisterRoutes(queue, dynamoTable, volatileRdb, &cfg.RateLimit, &cfg.Cache),
 	}
 
 	go func() {

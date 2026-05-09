@@ -28,3 +28,7 @@ buffer:
 worker:
   idle_interval: "${WORKER_IDLE_INTERVAL}"
   pull_limit: ${WORKER_PULL_LIMIT}
+
+cache:
+  max_weight: ${CACHE_MAX_WEIGHT}
+  expiry: "${CACHE_EXPIRY}"

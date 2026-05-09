@@ -10,10 +10,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func RegisterRoutes(queue *queue.DataQueue, table *dynamo.Table, volatileRdb *redis.Client, rlcfg *config.RateLimitConfig) http.Handler {
+func RegisterRoutes(
+	queue *queue.DataQueue,
+	table *dynamo.Table,
+	volatileRdb *redis.Client,
+	rlcfg *config.RateLimitConfig,
+	cacheCfg *config.CacheOptions,
+) http.Handler {
 	mux := http.NewServeMux()
 	h := handler{queue: queue, db: table, volatileRdb: volatileRdb}
 	limiter := redis_rate.NewLimiter(volatileRdb)
+	initializeCache(cacheCfg.MaxWeight, cacheCfg.Expiry)
 
 	shortenLimit := redis_rate.Limit{
 		Rate:   rlcfg.Shorten.Count,
@@ -38,16 +45,16 @@ func RegisterRoutes(queue *queue.DataQueue, table *dynamo.Table, volatileRdb *re
 }
 
 func corsHandler(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Access-Control-Allow-Origin", "*")
-        w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-        if r.Method == http.MethodOptions {
-            w.WriteHeader(http.StatusNoContent)
-            return
-        }
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 
-        next.ServeHTTP(w, r)
-    })
+		next.ServeHTTP(w, r)
+	})
 }
