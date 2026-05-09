@@ -10,9 +10,9 @@
 	--c0: #0A0A0A;
 	--c1: #111111;
 	--c2: #1A1A1A;
-	--c3: #242424;
+	--c3: #474747;
 	--c4: #434343;
-	--c5: #646464;
+	--c5: #747474;
 	--c6: #787878;
 	--c7: #888888;
 	--c8: #AAAAAA;
@@ -290,7 +290,7 @@ hr {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 1px;
-	background: var(--c2);
+	/* background: var(--c2); */
 	justify-content: center;
 }
 
@@ -299,6 +299,7 @@ hr {
 	padding: 40px 40px 44px;
 	flex: 1 1 calc(50% - 1px);
 	min-width: 300px;
+	max-width: 700px;
 }
 
 .card-n {
@@ -321,10 +322,10 @@ hr {
 
 .card-text {
 	font-family: var(--mono);
-	font-size: 12px;
+	font-size: 14px;
 	font-weight: 300;
 	color: var(--c7);
-	line-height: 2;
+	line-height: 1.7;
 	letter-spacing: 0.02em;
 }
 
@@ -342,7 +343,7 @@ hr {
 
 .cpill {
 	font-family: var(--mono);
-	font-size: 10px;
+	font-size: 12px;
 	letter-spacing: 0.08em;
 	color: var(--c5);
 	border: 1px solid var(--c3);
@@ -358,18 +359,21 @@ hr {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	max-width: 800px;
+	margin-inline: auto;
+	font-size: 12px;
 }
 
 .gh-note {
 	font-family: var(--mono);
-	font-size: 11px;
+	/* font-size: 11px; */
 	color: var(--c5);
 	letter-spacing: 0.04em;
 }
 
 .gh-link {
 	font-family: var(--mono);
-	font-size: 11px;
+	/* font-size: 11px; */
 	color: var(--c8);
 	text-decoration: none;
 	letter-spacing: 0.06em;
