@@ -1,16 +1,15 @@
 package api
 
 import (
+	"backend/internal/database/store"
 	"backend/internal/queue"
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/guregu/dynamo/v2"
 	"github.com/maypok86/otter/v2"
 	"github.com/redis/go-redis/v9"
 )
@@ -22,17 +21,12 @@ const DefaultExpiry = 1 * time.Minute
 
 type handler struct {
 	queue       *queue.DataQueue
-	db          *dynamo.Table
+	db          store.Store
 	volatileRdb *redis.Client
 }
 
 type shortReq struct {
 	URL string `json:"longurl" validate:"required,url"`
-}
-
-type urlMap struct {
-	ID  string `dynamo:"id"`
-	URL string `dynamo:"original_url"`
 }
 
 func (h *handler) shorten(w http.ResponseWriter, r *http.Request) {
@@ -49,10 +43,8 @@ func (h *handler) shorten(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case id := <-h.queue.Pipe:
-		mapping := urlMap{ID: id, URL: req.URL}
 
-		if err := h.db.Put(mapping).Run(r.Context()); err != nil {
-			slog.Error("dynamo put failed", "err", err)
+		if !h.db.PutUrl(r.Context(), id, req.URL) {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
@@ -85,15 +77,12 @@ func (h *handler) redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var res urlMap
-	err = h.db.Get("id", id).One(r.Context(), &res)
-	if err != nil {
-		if errors.Is(err, dynamo.ErrNotFound) {
-			http.Error(w, "not found", http.StatusNotFound)
-			return
-		}
-		slog.Error("dynamo get failed", "id", id, "err", err)
+	url, isSuccess := h.db.GetUrl(r.Context(), id)
+	if !isSuccess {
 		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
+	if url == "" {
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
@@ -102,9 +91,9 @@ func (h *handler) redirect(w http.ResponseWriter, r *http.Request) {
 		if err := h.volatileRdb.Set(context.Background(), id, url, time.Hour).Err(); err != nil {
 			slog.Error("redis set failed", "id", id, "err", err)
 		}
-	}(id, res.URL)
+	}(id, url)
 
-	http.Redirect(w, r, res.URL, http.StatusMovedPermanently)
+	http.Redirect(w, r, url, http.StatusMovedPermanently)
 }
 
 func writeJSON(w http.ResponseWriter, code int, data any) {

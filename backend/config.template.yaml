@@ -17,9 +17,23 @@ persistent_redis:
 volatile_redis:
   addr: "${VOLATILE_REDIS_ADDR}"
 
-aws:
+dynamodb:
   region: "${AWS_REGION}"
-  dynamo_table: "${AWS_DYNAMO_TABLE}"
+  table_name: "${TABLE_NAME}"
+  columns:
+    id: "${DYNAMODB_COL_ID}"
+    url: "${DYNAMODB_COL_URL}"
+
+postgres:
+  host: "${PG_HOST}"
+  port: 5432
+  user: "${PG_USER}"
+  password: "${PG_PASSWORD}"
+  name: "${PG_DATABASE}"
+  table: "${PG_TABLE}"
+  columns:
+    id: "${PG_COL_ID}"
+    url: "${PG_COL_URL}"
 
 buffer:
   buffer_id_size: ${BUFFER_ID_SIZE}

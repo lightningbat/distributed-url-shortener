@@ -34,6 +34,28 @@ type CacheOptions struct {
 	Expiry    string `yaml:"expiry"`
 }
 
+type DynamodbConfig struct {
+	Region    string `yaml:"region"`
+	TableName string `yaml:"table_name"`
+	Columns  struct {
+		ID  string `yaml:"id"`
+		URL string `yaml:"url"`
+	} `yaml:"columns"`
+}
+
+type PostgresConfig struct {
+	Host     string `yaml:"host"`
+	Port     uint16 `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Name     string `yaml:"name"`
+	Table    string `yaml:"table"`
+	Columns  struct {
+		ID  string `yaml:"id"`
+		URL string `yaml:"url"`
+	} `yaml:"columns"`
+}
+
 type Config struct {
 	Server struct {
 		Port  string `yaml:"port"`
@@ -47,15 +69,14 @@ type Config struct {
 
 	VolatileRedis RedisInstance `yaml:"volatile_redis"`
 
-	AWS struct {
-		Region      string `yaml:"region"`
-		DynamoTable string `yaml:"dynamo_table"`
-	} `yaml:"aws"`
-
 	Buffer struct {
 		BufferIDSize int `yaml:"buffer_id_size"`
 		MaxRetries   int `yaml:"max_retries"`
 	} `yaml:"buffer"`
+
+	DynamoDB DynamodbConfig `yaml:"dynamodb"`
+
+	Postgres PostgresConfig `yaml:"postgressql"`
 
 	Worker WorkerOptions `yaml:"worker"`
 
@@ -95,10 +116,10 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 
 	if region := os.Getenv("AWS_REGION"); region != "" {
-		cfg.AWS.Region = region
+		cfg.DynamoDB.Region = region
 	}
 	if table := os.Getenv("DYNAMO_TABLE"); table != "" {
-		cfg.AWS.DynamoTable = table
+		cfg.DynamoDB.TableName = table
 	}
 
 	return cfg, nil

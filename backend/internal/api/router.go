@@ -3,22 +3,22 @@ package api
 import (
 	"backend/internal/config"
 	"backend/internal/queue"
+	"backend/internal/database/store"
 	"net/http"
 
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/guregu/dynamo/v2"
 	"github.com/redis/go-redis/v9"
 )
 
 func RegisterRoutes(
 	queue *queue.DataQueue,
-	table *dynamo.Table,
+	database store.Store,
 	volatileRdb *redis.Client,
 	rlcfg *config.RateLimitConfig,
 	cacheCfg *config.CacheOptions,
 ) http.Handler {
 	mux := http.NewServeMux()
-	h := handler{queue: queue, db: table, volatileRdb: volatileRdb}
+	h := handler{queue: queue, db: database, volatileRdb: volatileRdb}
 	limiter := redis_rate.NewLimiter(volatileRdb)
 	initializeCache(cacheCfg.MaxWeight, cacheCfg.Expiry)
 

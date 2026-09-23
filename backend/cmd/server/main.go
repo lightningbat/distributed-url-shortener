@@ -3,7 +3,8 @@ package main
 import (
 	"backend/internal/api"
 	"backend/internal/config"
-	"backend/internal/database"
+	"backend/internal/database/store"
+	"backend/internal/database/redis"
 	"backend/internal/queue"
 	"backend/internal/worker"
 	"context"
@@ -31,9 +32,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	persistentRdb := database.NewRedisClient(cfg.PersistentRedis.Addr, cfg.PersistentRedis.Password)
+	persistentRdb := redis.NewRedisClient(cfg.PersistentRedis.Addr, cfg.PersistentRedis.Password)
 	defer persistentRdb.Close()
-	volatileRdb := database.NewRedisClient(cfg.VolatileRedis.Addr, cfg.VolatileRedis.Password)
+	volatileRdb := redis.NewRedisClient(cfg.VolatileRedis.Addr, cfg.VolatileRedis.Password)
 	defer volatileRdb.Close()
 
 	queue := queue.New(
@@ -43,9 +44,9 @@ func main() {
 		cfg.PersistentRedis.RedisKeyIDs,
 	)
 
-	dynamoTable, err := database.NewDynamodbClient(ctx, cfg.AWS.Region, cfg.AWS.DynamoTable)
+	database, err := store.New(ctx, &cfg.DynamoDB, &cfg.Postgres)
 	if err != nil {
-		log.Fatalf("dynamodb connection failed: %v", err)
+		log.Fatalf("database initialization failed: %v", err)
 	}
 
 	w := worker.Worker{
@@ -58,7 +59,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Port,
-		Handler: api.RegisterRoutes(queue, dynamoTable, volatileRdb, &cfg.RateLimit, &cfg.Cache),
+		Handler: api.RegisterRoutes(queue, database, volatileRdb, &cfg.RateLimit, &cfg.Cache),
 	}
 
 	go func() {
